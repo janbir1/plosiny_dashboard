@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Plošiny Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
+    <style>
+        .ghost { opacity: 0.3; background: #d3d2b5 !important; border: 2px dashed #6366f1; }
+        .drag-handle { cursor: grab; transition: all 0.2s ease; border-left-width: 6px; touch-action: none; }
+        .drag-handle:active { cursor: grabbing; scale: 0.98; }
+        /* Optimalizace pro mobilní posun */
+        .sortable-fallback { opacity: 1 !important; }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen p-2 md:p-10 select-none">
+
+    <header class="max-w-6xl mx-auto mb-6 md:mb-10">
+        <div class="flex justify-between items-center gap-4 mb-6">
+            <div>
+                <h1 class="text-2xl md:text-3xl font-black tracking-tight uppercase">Plošiny</h1>
+                <p class="text-slate-400 text-xs md:text-sm">Online správa zakázek</p>
+            </div>
+            <button onclick="resetBoard()" class="bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white px-3 py-2 rounded-lg text-xs font-bold transition border border-red-500/20">
+                Smazat vše
+            </button>
+        </div>
+
+        <div class="bg-slate-800 p-3 md:p-4 rounded-xl border border-slate-700 flex gap-2 max-w-2xl mx-auto shadow-2xl">
+            <input type="text" id="taskInput" placeholder="Název zakázky..." 
+                class="bg-slate-900 border border-slate-600 rounded-lg px-4 py-3 w-full focus:outline-none focus:ring-2 focus:ring-blue-500 transition text-white font-semibold">
+            <button onclick="addTask()" class="bg-blue-600 hover:bg-blue-500 text-white px-5 md:px-8 py-3 rounded-lg font-bold transition shadow-lg active:scale-95">
+                PŘIDAT
+            </button>
+        </div>
+    </header>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 max-w-7xl mx-auto">
+        
+        <div class="bg-slate-800/40 p-3 rounded-xl border border-slate-700/50">
+            <h2 class="text-blue-400 font-bold uppercase tracking-widest text-[10px] mb-4 flex items-center bg-blue-500/10 w-fit px-2 py-1 rounded">
+                <span class="w-2 h-2 bg-blue-500 rounded-full mr-2"></span> Objednat
+            </h2>
+            <div id="col-1" data-name="Objednat" data-color="border-blue-500" class="sortable-list space-y-3 min-h-[150px] md:min-h-[400px]"></div>
+        </div>
+
+        <div class="bg-slate-800/40 p-3 rounded-xl border border-slate-700/50">
+            <h2 class="text-yellow-400 font-bold uppercase tracking-widest text-[10px] mb-4 flex items-center bg-yellow-500/10 w-fit px-2 py-1 rounded">
+                <span class="w-2 h-2 bg-yellow-500 rounded-full mr-2"></span> Domluveno
+            </h2>
+            <div id="col-2" data-name="Domluveno" data-color="border-yellow-500" class="sortable-list space-y-3 min-h-[150px] md:min-h-[400px]"></div>
+        </div>
+
+        <div class="bg-slate-800/40 p-3 rounded-xl border border-slate-700/50">
+            <h2 class="text-purple-400 font-bold uppercase tracking-widest text-[10px] mb-4 flex items-center bg-purple-500/10 w-fit px-2 py-1 rounded">
+                <span class="w-2 h-2 bg-purple-500 rounded-full mr-2"></span> Odvoláno
+            </h2>
+            <div id="col-3" data-name="Odvoláno" data-color="border-purple-500" class="sortable-list space-y-3 min-h-[150px] md:min-h-[400px]"></div>
+        </div>
+
+        <div class="bg-slate-800/40 p-3 rounded-xl border border-slate-700/50">
+            <h2 class="text-emerald-400 font-bold uppercase tracking-widest text-[10px] mb-4 flex items-center bg-emerald-500/10 w-fit px-2 py-1 rounded">
+                <span class="w-2 h-2 bg-emerald-500 rounded-full mr-2"></span> Odvezeno
+            </h2>
+            <div id="col-4" data-name="Odvezeno" data-color="border-emerald-500" class="sortable-list space-y-3 min-h-[150px] md:min-h-[400px]"></div>
+        </div>
+    </div>
+
+    <script>
+        const colorClasses = ['border-blue-500', 'border-yellow-500', 'border-purple-500', 'border-emerald-500'];
+
+        function getTimestamp() {
+            const now = new Date();
+            return `${now.getDate()}.${now.getMonth() + 1}. ${now.getHours()}:${now.getMinutes().toString().padStart(2, '0')}`;
+        }
+
+        function updateTaskStatus(taskElement, columnElement) {
+            const newColor = columnElement.getAttribute('data-color');
+            taskElement.classList.remove(...colorClasses);
+            taskElement.classList.add(newColor);
+
+            const statusName = columnElement.getAttribute('data-name');
+            const statusEl = taskElement.querySelector('.status-log');
+            if (statusEl) {
+                statusEl.textContent = `Stav: ${statusName} (${getTimestamp()})`;
+            }
+        }
+
+        function saveState() {
+            const state = {};
+            document.querySelectorAll('.sortable-list').forEach(l => {
+                state[l.id] = l.innerHTML;
+            });
+            localStorage.setItem('board_data_final', JSON.stringify(state));
+        }
+
+        function addTask() {
+            const input = document.getElementById('taskInput');
+            const title = input.value.trim();
+            if (!title) return;
+
+            const time = getTimestamp();
+            const col1 = document.getElementById('col-1');
+            const task = document.createElement('div');
+            
+            task.className = "bg-slate-700 p-4 rounded-lg shadow-md drag-handle border-l-[6px] border-blue-500 transition-all group relative active:shadow-inner";
+            
+            task.innerHTML = `
+                <button onclick="this.parentElement.remove(); saveState();" class="absolute top-2 right-2 text-slate-500 hover:text-red-400 p-2 md:opacity-0 group-hover:opacity-100 transition">✕</button>
+                <div class="font-bold text-slate-100 text-lg mb-1 pr-6">${title}</div>
+                <div class="text-[10px] text-slate-400 uppercase tracking-wider">Vytvořeno: ${time}</div>
+                <div class="status-log text-[10px] text-blue-400 font-extrabold uppercase tracking-wider mt-1">Stav: Objednat</div>
+            `;
+
+            col1.appendChild(task);
+            input.value = "";
+            saveState();
+        }
+
+        document.querySelectorAll('.sortable-list').forEach(list => {
+            new Sortable(list, {
+                group: 'tasks',
+                animation: 250,
+                ghostClass: 'ghost',
+                delay: 50, // Krátké zpoždění pro mobilní dotyk, aby se dalo scrollovat
+                delayOnTouchOnly: true,
+                onEnd: (evt) => {
+                    if (evt.from !== evt.to) {
+                        updateTaskStatus(evt.item, evt.to);
+                    }
+                    saveState();
+                }
+            });
+        });
+
+        window.onload = () => {
+            const saved = localStorage.getItem('board_data_final');
+            if (saved) {
+                const state = JSON.parse(saved);
+                Object.keys(state).forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) el.innerHTML = state[id];
+                });
+            }
+        };
+
+        function resetBoard() {
+            if(confirm("Opravdu smazat všechny položky?")) {
+                localStorage.removeItem('board_data_final');
+                location.reload();
+            }
+        }
+
+        document.getElementById('taskInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') addTask();
+        });
+    </script>
+</body>
+</html>
